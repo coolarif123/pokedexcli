@@ -6,7 +6,6 @@ import(
 	"io"
 	"errors"
 	"encoding/json"
-	"github.com/coolarif123/pokedexcli/internal/pokecache"
 )
 
 func commandMap(config *Config) error {
@@ -23,7 +22,7 @@ func commandMap(config *Config) error {
 		return errors.New("Error in retrieving next URL")
 	}
 
-	cachedData, ok := cache.data[url] 
+	cachedData, ok := config.Cache.Get(url) 
 	if !ok {
 		res, err := http.Get(url)
 		if err != nil {
@@ -35,13 +34,14 @@ func commandMap(config *Config) error {
 	
 		defer res.Body.Close()
 		body, err := io.ReadAll(res.Body)
-		
 	
 		if err != nil {
 			return err
 		}
+
+		config.Cache.Add(url, body)
 	
-		var location Location
+		var location LocationMap
 	
 		err = json.Unmarshal(body, &location)
 		if err != nil {
@@ -64,29 +64,29 @@ func commandMap(config *Config) error {
 			if i >= 20 {
 				break
 			} 
-			cache.Add(url, []byte(r))
 			fmt.Println(r.Name)
 		}
 	} else {
 		//TODO: IMPLEMENT CACHING
-		for i, r := range cachedData {
-			if i >= 20 {
-				break
-			}
-			fmt.Println(r)
-		}
+
+		var location LocationMap
+
+		err := json.Unmarshal(cachedData, &location)
+        if err != nil {
+            return err
+        }
+
+		for i, r := range location.Results {
+            if i >= 20 {
+                break
+            }
+            fmt.Println(r.Name)
+        }
 	}
 	return nil
 }
 
-type Config struct {
-	Mapb      bool
-	initMap   bool
-	Previous *string
-	Next 	 *string
-}
-
-type Location struct {
+type LocationMap struct {
 	Next     *string    `json:"next"`
 	Previous *string    `json:"previous"`
 	Results  []struct {
